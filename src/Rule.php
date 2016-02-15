@@ -33,10 +33,11 @@ class Rule
 
     /**
      * Rule constructor.
-     * @param string $target
-     * @param int $protocol
-     * @param string $source
-     * @param string $destination
+     *
+     * @param string       $target
+     * @param int          $protocol
+     * @param string       $source
+     * @param string       $destination
      * @param string|array $options
      */
     public function __construct($target, $protocol, $source = null, $destination = null, $options = [])
@@ -51,22 +52,6 @@ class Rule
         } else {
             $this->parseOptions($options);
         }
-    }
-
-    /**
-     * @return int
-     */
-    public function getNum()
-    {
-        return $this->num;
-    }
-
-    /**
-     * @param int $num
-     */
-    public function setNum($num)
-    {
-        $this->num = $num;
     }
 
     /**
@@ -88,12 +73,79 @@ class Rule
             }
         }
 
+        if (preg_match('/(?<params>.*?)\s+?(?<ports>\d+\,?.*?)\s+?.*state\s(?<state>[A-Z,]*)\s?(?<post_params>.*)/',
+            $options, $parsed)) {
+            $this->parseParams($parsed['params']);
+            $this->parseParams($parsed['post_params']);
+            $this->parsePorts($parsed['ports']);
+            $this->parseState($parsed['state']);
+        }
+
         // find if limit has been set
-        if (preg_match_all('/limit:\savg\s(?<limit>\d+\/(sec|min|hour|day))\sburst\s(?<burst>\d+)/', $options, $parsed)) {
+        if (preg_match_all('/limit:\savg\s(?<limit>\d+\/(sec|min|hour|day))\sburst\s(?<burst>\d+)/', $options,
+            $parsed)) {
             for ($i = 0; $i < count($parsed['limit']); $i++) {
                 $this->options['--match'][] = 'limit --limit ' . $parsed['limit'][$i] . ' --limit-burst ' . $parsed['burst'][$i];
             }
         }
+    }
+
+    /**
+     * @param $paramString
+     */
+    private function parseParams($paramString)
+    {
+        $explode = explode(' ', $paramString);
+
+        foreach ($explode as $param) {
+            $this->parseParam($param);
+        }
+    }
+
+    /**
+     * @param $param
+     */
+    private function parseParam($param)
+    {
+        $explode = explode(':', $param);
+
+        if (count($explode) > 1) {
+            $this->options['advanced'][$explode[0]] = $explode[1];
+        } elseif ($param) {
+            $this->options['advanced'][$param] = $param;
+        }
+    }
+
+    /**
+     * @param $ports
+     */
+    private function parsePorts($ports)
+    {
+        $this->options['advanced']['ports'] = explode(',', $ports);
+    }
+
+    /**
+     * @param $state
+     */
+    private function parseState($state)
+    {
+        $this->options['advanced']['state'] = explode(',', $state);
+    }
+
+    /**
+     * @return int
+     */
+    public function getNum()
+    {
+        return $this->num;
+    }
+
+    /**
+     * @param int $num
+     */
+    public function setNum($num)
+    {
+        $this->num = $num;
     }
 
     /**
@@ -114,6 +166,10 @@ class Rule
         }
 
         foreach ($this->options as $k => $value) {
+            if ($k === 'advanced') {
+                continue;
+            }
+
             if (is_scalar($value)) {
                 $cmd .= ' ' . $k . ' ' . $value;
             } else {
@@ -126,5 +182,45 @@ class Rule
         $cmd .= !empty($this->target) ? ' --jump ' . $this->target : '';
 
         return $cmd;
+    }
+
+    /**
+     * @return string
+     */
+    public function getTarget()
+    {
+        return $this->target;
+    }
+
+    /**
+     * @return int
+     */
+    public function getProtocol()
+    {
+        return $this->protocol;
+    }
+
+    /**
+     * @return string
+     */
+    public function getSource()
+    {
+        return $this->source;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDestination()
+    {
+        return $this->destination;
+    }
+
+    /**
+     * @return array
+     */
+    public function getOptions()
+    {
+        return $this->options;
     }
 }
